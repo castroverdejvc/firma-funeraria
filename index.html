@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Firma de documentos · Funeraria Marzo</title>
+<style>
+  :root{--ink:#2a2420;--muted:#776b62;--line:#e4dcd2;--brown:#6b4f36;--bg:#f7f3ee;--ok:#2f7a3d;--bad:#a2452e}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  main{max-width:720px;margin:0 auto;padding:16px 16px 40px}
+  header{display:flex;align-items:center;gap:10px;margin:4px 0 14px}
+  header b{font-size:17px;color:var(--brown)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  h1{font-size:19px;color:var(--brown);margin:0 0 4px;text-transform:uppercase;letter-spacing:.02em}
+  h2{font-size:15px;color:var(--brown);margin:14px 0 4px}
+  p{margin:6px 0}
+  .muted{color:var(--muted);font-size:14px}
+  ul{margin:6px 0 6px 20px;padding:0}
+  .cas{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+  h2.sec{font-size:16px;background:#f3eee8;color:var(--brown);padding:8px 10px;border-radius:8px;margin:18px 0 6px}
+  label.cas.aut{background:#fbf8f3;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer}
+  label.cas.aut input{width:22px;height:22px;flex:0 0 22px;margin:0}
+  .cas span.b{display:inline-block;min-width:18px;height:18px;border:1.5px solid #555;border-radius:3px;text-align:center;line-height:16px;font-weight:700;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:6px 0}
+  td{padding:4px 2px;border-bottom:1px solid var(--line);vertical-align:top}
+  td.n{text-align:right;white-space:nowrap}
+  tr.t td{font-weight:700;border-bottom:0}
+  canvas{width:100%;height:auto;background:#fff;border:2px dashed #9a8f86;border-radius:10px;touch-action:none;display:block}
+  button{font:inherit;border-radius:10px;padding:12px 16px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+  button.pri{background:var(--brown);color:#fff;border-color:var(--brown);font-weight:600}
+  button:disabled{opacity:.5}
+  .fila{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .fila button{flex:1 1 140px}
+  label.lei{display:flex;gap:10px;align-items:flex-start;margin:10px 0;font-size:15px}
+  label.lei input{width:22px;height:22px;margin-top:2px}
+  .estado{padding:14px;border-radius:10px;text-align:center}
+  .ok{background:#eaf5ec;color:var(--ok);font-weight:600}
+  .mal{background:#fbecea;color:var(--bad)}
+  .pie{font-size:12px;color:var(--muted);text-align:center;margin-top:18px}
+</style>
+</head>
+<body>
+<main>
+  <header><b>Funeraria Marzo</b><span class="muted" id="hEmp"></span></header>
+  <div id="app"><div class="card estado" id="cargando">Cargando el documento…</div></div>
+  <p class="pie" id="pie">El documento y la firma viajan cifrados: solo los puede leer la funeraria.</p>
+</main>
+<script>
+"use strict";
+const RELAY = "https://ntfy.sh";
+const T = {
+  es:{cargando:"Cargando el documento…",nohay:"No se encuentra el documento. Puede que el código haya caducado (vale 12 horas). Pide a la funeraria que lo genere otra vez.",
+      mal:"Este enlace no es correcto. Escanea otra vez el código de la funeraria.",firma:"Firma aquí con el dedo",borrar:"Borrar",enviar:"Firmar y enviar",
+      lei:"He leído el documento y estoy de acuerdo.",falta:"Falta la firma.",faltaLei:"Marca que has leído el documento.",enviando:"Enviando…",
+      hecho:"✓ Documento firmado. Ya puedes cerrar esta página. Gracias.",error:"No se ha podido enviar la firma. Comprueba la conexión e inténtalo otra vez.",
+      firmante:"Firma",fecha:"Fecha",ya:"Este documento ya está firmado.",pie:"El documento y la firma viajan cifrados: solo los puede leer la funeraria.",
+      conc:"Concepto",cant:"Cant.",imp:"Importe",autorizo:"Autorizo"},
+  gl:{cargando:"Cargando o documento…",nohay:"Non se atopa o documento. Pode que o código caducase (vale 12 horas). Pídelle á funeraria que o xere outra vez.",
+      mal:"Esta ligazón non é correcta. Escanea outra vez o código da funeraria.",firma:"Asina aquí co dedo",borrar:"Borrar",enviar:"Asinar e enviar",
+      lei:"Lin o documento e estou de acordo.",falta:"Falta a sinatura.",faltaLei:"Marca que liches o documento.",enviando:"Enviando…",
+      hecho:"✓ Documento asinado. Xa podes pechar esta páxina. Grazas.",error:"Non se puido enviar a sinatura. Comproba a conexión e téntao outra vez.",
+      firmante:"Asina",fecha:"Data",ya:"Este documento xa está asinado.",pie:"O documento e a sinatura viaxan cifrados: só os pode ler a funeraria.",
+      conc:"Concepto",cant:"Cant.",imp:"Importe",autorizo:"Autorizo"}
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const b64u = u => { let s=""; const B=new Uint8Array(u); for (let i=0;i<B.length;i++) s+=String.fromCharCode(B[i]); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); };
+const deb64u = s => { s=s.replace(/-/g,"+").replace(/_/g,"/"); while (s.length%4) s+="="; const t=atob(s), u=new Uint8Array(t.length); for (let i=0;i<t.length;i++) u[i]=t.charCodeAt(i); return u; };
+async function zip(bytes, des){ const cs = des ? new DecompressionStream("deflate-raw") : new CompressionStream("deflate-raw"); return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer()); }
+async function cifra(obj, keyRaw){ const k=await crypto.subtle.importKey("raw",keyRaw,"AES-GCM",false,["encrypt"]), iv=crypto.getRandomValues(new Uint8Array(12));
+  const z=await zip(new TextEncoder().encode(JSON.stringify(obj))), ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},k,z)); const o=new Uint8Array(12+ct.length); o.set(iv); o.set(ct,12); return b64u(o); }
+async function descifra(txt, keyRaw){ const u=deb64u(txt), k=await crypto.subtle.importKey("raw",keyRaw,"AES-GCM",false,["decrypt"]);
+  const z=new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:u.slice(0,12)},k,u.slice(12))); return JSON.parse(new TextDecoder().decode(await zip(z,true))); }
+async function lee(topic, tipo){ const r=await fetch(`${RELAY}/${topic}/json?poll=1&since=all`,{cache:"no-store"}); if(!r.ok) throw new Error("buzón "+r.status);
+  const P={}; let n=0; (await r.text()).split("\n").forEach(l=>{ try{ const m=JSON.parse(l); const x=String(m.message||"").match(/^SAFM1 (\w) (\d+)\/(\d+) (.*)$/s); if(x&&x[1]===tipo){ P[+x[2]]=x[4]; n=+x[3]; } }catch(e){} });
+  if(!n) return null; for (let i=1;i<=n;i++) if (P[i]==null) return null; let s=""; for (let i=1;i<=n;i++) s+=P[i]; return s; }
+async function manda(topic, tipo, txt){ const L=3200, n=Math.max(1,Math.ceil(txt.length/L));
+  for (let i=0;i<n;i++){ const r=await fetch(`${RELAY}/${topic}`,{method:"POST",body:`SAFM1 ${tipo} ${i+1}/${n} ${txt.slice(i*L,(i+1)*L)}`}); if(!r.ok) throw new Error("buzón "+r.status); } }
+const hoy = () => { const d=new Date(), p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
+
+function pintaDoc(doc, t){
+  const B = doc.B||[]; let h = `<div class="card"><h1>${esc(doc.tit)}</h1><p class="muted">${esc(doc.dif||"")}</p>`;
+  for (const b of B){
+    if (b.sec) h += `<h2 class="sec">${esc(b.sec)}</h2>`;
+    if (b.h) h += `<h2>${esc(b.h)}</h2>`;
+    if (b.p) h += `<p>${esc(b.p)}</p>`;
+    if (b.lista) h += `<ul>${b.lista.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`;
+    if (b.casillas) h += doc.interactivo
+      ? b.casillas.map(([on,x,k])=>`<label class="cas aut"><input type="checkbox" data-aut="${esc(k||"")}" ${on?"checked":""}><span><b>${t.autorizo}:</b> ${esc(x)}</span></label>`).join("")
+      : b.casillas.map(([on,x])=>`<div class="cas"><span class="b">${on?"X":"&nbsp;"}</span><span>${esc(x)}</span></div>`).join("");
+    if (b.tabla){ const tb=b.tabla; h += `<h2>${esc(tb.tit)}</h2><table><tr><td><b>${t.conc}</b></td><td class="n"><b>${t.cant}</b></td><td class="n"><b>${t.imp}</b></td></tr>`+
+      tb.filas.map(r=>`<tr><td>${esc(r[0])}</td><td class="n">${esc(r[1])}</td><td class="n">${esc(r[2])}</td></tr>`).join("")+
+      tb.tot.map(r=>`<tr class="${r[0]==="TOTAL"?"t":""}"><td></td><td class="n">${esc(r[0])}</td><td class="n">${esc(r[1])}</td></tr>`).join("")+`</table>`; }
+  }
+  h += `</div>`; return h;
+}
+async function inicio(){
+  const frag = location.hash.slice(1), m = frag.match(/^(safm[a-z0-9]{8,40})\.([A-Za-z0-9_-]{16,64})$/);
+  const L0 = /^gl/i.test(navigator.language||"") ? "gl" : "es";
+  if (!m){ $("#app").innerHTML = `<div class="card estado mal">${T[L0].mal}</div>`; return; }
+  const topic = m[1], key = deb64u(m[2]);
+  let txt = null; for (let i=0;i<4 && !txt;i++){ try{ txt = await lee(topic,"D"); }catch(e){} if(!txt) await new Promise(r=>setTimeout(r,2500)); }
+  if (!txt){ $("#app").innerHTML = `<div class="card estado mal">${T[L0].nohay}</div>`; return; }
+  let doc; try{ doc = await descifra(txt, key); }catch(e){ $("#app").innerHTML = `<div class="card estado mal">${T[L0].mal}</div>`; return; }
+  const t = T[doc.L==="gl"?"gl":"es"]; document.documentElement.lang = doc.L==="gl"?"gl":"es";
+  $("#hEmp").textContent = doc.emp && doc.emp.nombre ? "· "+doc.emp.nombre : ""; $("#pie").textContent = t.pie;
+  let firmada = false; try{ firmada = !!(await lee(topic,"F")); }catch(e){}
+  if (firmada){ $("#app").innerHTML = pintaDoc(doc,t)+`<div class="card estado ok">${t.ya}</div>`; return; }
+  $("#app").innerHTML = pintaDoc(doc,t) + `<div class="card" id="zFirma">
+      <p><b>${t.firmante}:</b> ${esc(doc.D&&doc.D.nombre||"")}${doc.D&&doc.D.dni?" · DNI "+esc(doc.D.dni):""}<br><span class="muted">${t.fecha}: ${hoy().split("-").reverse().join("/")}</span></p>
+      <label class="lei"><input type="checkbox" id="lei"> <span>${t.lei}</span></label>
+      <p class="muted" style="margin:6px 0 4px">${t.firma}</p>
+      <canvas id="pad" width="600" height="220"></canvas>
+      <div class="fila"><button type="button" id="borra">${t.borrar}</button><button type="button" class="pri" id="envia">${t.enviar}</button></div>
+      <div id="msg" class="muted" style="margin-top:8px;min-height:20px"></div></div>`;
+  const cv=$("#pad"), g=cv.getContext("2d"); g.lineWidth=2.6; g.lineCap="round"; g.lineJoin="round"; g.strokeStyle="#1a1a4a";
+  const trazos=[]; let cur=null;
+  const pos=e=>{ const r=cv.getBoundingClientRect(); return [Math.round((e.clientX-r.left)*cv.width/r.width), Math.round((e.clientY-r.top)*cv.height/r.height)]; };
+  cv.addEventListener("pointerdown",e=>{ e.preventDefault(); cv.setPointerCapture(e.pointerId); const [x,y]=pos(e); cur=[x,y]; trazos.push(cur); g.beginPath(); g.moveTo(x,y); g.lineTo(x+0.5,y+0.5); g.stroke(); g.beginPath(); g.moveTo(x,y); });
+  cv.addEventListener("pointermove",e=>{ if(!cur) return; e.preventDefault(); const [x,y]=pos(e); const lx=cur[cur.length-2], ly=cur[cur.length-1]; if(Math.abs(x-lx)+Math.abs(y-ly)<2) return; cur.push(x,y); g.lineTo(x,y); g.stroke(); });
+  ["pointerup","pointercancel"].forEach(ev=>cv.addEventListener(ev,()=>{ cur=null; }));
+  $("#borra").onclick=()=>{ g.clearRect(0,0,cv.width,cv.height); trazos.length=0; };
+  $("#envia").onclick=async()=>{ const msg=$("#msg");
+    if(!$("#lei").checked){ msg.textContent=t.faltaLei; msg.style.color="var(--bad)"; return; }
+    if(!trazos.length){ msg.textContent=t.falta; msg.style.color="var(--bad)"; return; }
+    const b=$("#envia"); b.disabled=true; b.textContent=t.enviando; msg.textContent="";
+    const d=new Date(), p=n=>String(n).padStart(2,"0");
+    const aut={}; document.querySelectorAll("[data-aut]").forEach(c=>{ if(c.dataset.aut) aut[c.dataset.aut]=c.checked; });
+    try{ await manda(topic,"F",await cifra({v:1,aut,trazos,w:cv.width,h:cv.height,fecha:hoy(),hora:`${p(d.getHours())}:${p(d.getMinutes())}`,lei:true,ua:(navigator.userAgent||"").slice(0,160)},key));
+      $("#zFirma").outerHTML=`<div class="card estado ok">${t.hecho}</div>`; }
+    catch(e){ b.disabled=false; b.textContent=t.enviar; msg.textContent=t.error; msg.style.color="var(--bad)"; } };
+}
+inicio();
+</script>
+</body>
+</html>
